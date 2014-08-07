@@ -57,7 +57,8 @@ contentDecrypt webUi = do
   iv <- pack <$> (ivInput webUi >>= htmlInputElementGetValue)
   val <- pack <$> (dataInput webUi >>= htmlInputElementGetValue)
   c <- contentDiv webUi
-  dec <- decrypt key iv val
+  let
+    dec = decrypt key iv val
   htmlElementSetInnerHTML c (unpack dec)
 
 mainGui webUi = do

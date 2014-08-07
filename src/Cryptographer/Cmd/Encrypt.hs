@@ -1,36 +1,44 @@
 module Cryptographer.Cmd.Encrypt where
 
-import Codec.Crypto.AES.IO
-import Codec.Crypto.AES.Random (prandBytes)
 import Control.Monad (liftM)
 import Data.ByteString.Base64 (encode, decode)
 import Control.Applicative ((<$>))
-import Data.ByteString
-import Cryptographer.Util (hash)
+import Data.ByteString as BS
+import Cryptographer.Util (hash, randIV, fromJust, tryDecode, fromEither)
+import Crypto.Cipher.Blowfish
+import qualified Crypto.Cipher.Types as BF
 
 type IV = ByteString
 type Key = ByteString
 
-cryptCtx = newCtx OFB
-
+addPadding blockSize bs 
+  | BS.length bs `div` blockSize == 0 = (bs,0)
+  | otherwise = (BS.concat [bs,BS.replicate e 0], e)
+  where
+    e = BS.length bs `mod` blockSize
+    
+                                   
 encrypt :: Key -> ByteString -> IO (IV, ByteString)
-encrypt key' content = do
-  vi <- prandBytes 16
-  ctx <- cryptCtx key vi Encrypt
-  (,) (encode vi) <$> liftM encode (crypt ctx content)
+encrypt key' content' = do
+  (vi,bs) <- randIV
+  let
+    e = BF.cfbEncrypt cipher vi content
+  return (encode bs, encode e)
   where
-    key = hash key'
+    (content,_) = addPadding (BF.blockSize cipher) content'
+    cipher = BF.cipherInit key
+    key :: BF.Key Blowfish256
+    key = case BF.makeKey $ hash key' of
+      Right k -> k
+      Left e -> error $ "Failed to create key: " ++ show e
+               
 
-decrypt :: Key -> IV -> ByteString -> IO ByteString
-decrypt key' iv' content' = do
-  ctx <- cryptCtx key iv Decrypt
-  crypt ctx content
+decrypt :: Key -> IV -> ByteString -> ByteString
+decrypt key' iv' content' = BF.cfbDecrypt cipher iv content
   where
-    key = hash key'
-    iv = tryDecode iv'
-    content = tryDecode content'
-    tryDecode str =
-      case decode str of
-        Right c -> c
-        Left errors -> error errors
-  
+    cipher = BF.cipherInit key
+    key :: BF.Key Blowfish256
+    key = fromEither $ BF.makeKey $ hash key'
+    iv = fromJust (error "Invalid initialization vector")
+         $ BF.makeIV (tryDecode iv')
+    content = tryDecode content'  

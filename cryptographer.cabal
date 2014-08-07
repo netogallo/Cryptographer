@@ -26,7 +26,8 @@ executable cryptographer
                        ,Cryptographer.Cmd.Encrypt
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
-                       ,cipher-blowfish >= 0.3
+                       ,crypto-cipher-types >= 0.0.9
+                       ,cipher-blowfish >= 0.0.3
                        ,ghcjs-dom
                        ,base64-bytestring >= 0.1
                        ,SHA >= 1.4
@@ -43,7 +44,8 @@ executable cryptographerUi
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8
                        ,ghcjs-dom
-                       ,cipher-blowfish >= 0.3
+                       ,cipher-blowfish >= 0.0.3
+                       ,crypto-cipher-types >= 0.0.9
                        ,monads-tf
                        ,base64-bytestring >= 0.1
                        ,bytestring
