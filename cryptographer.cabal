@@ -28,10 +28,12 @@ executable cryptographer
   build-depends:       base >=4.7 && <4.8
                        ,crypto-cipher-types >= 0.0.9
                        ,cipher-blowfish >= 0.0.3
+                       ,Twofish >= 0.3
                        ,ghcjs-dom
                        ,base64-bytestring >= 0.1
                        ,SHA >= 1.4
                        ,bytestring
+                       ,largeword
   hs-source-dirs:      src
   default-language:    Haskell2010
 
@@ -45,6 +47,7 @@ executable cryptographerUi
   build-depends:       base >=4.7 && <4.8
                        ,ghcjs-dom
                        ,cipher-blowfish >= 0.0.3
+                       ,Twofish >= 0.3
                        ,crypto-cipher-types >= 0.0.9
                        ,monads-tf
                        ,base64-bytestring >= 0.1
