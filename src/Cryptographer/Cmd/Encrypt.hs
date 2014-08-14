@@ -81,7 +81,13 @@ addPadding blockSize bs
 
 encrypt :: Cipher -> Key -> ByteString -> IO (IV, ByteString)
 encrypt = undefined 
-        
+
+decrypt key ctx' = decryptTF key ctx
+  where
+    ctx = case BE.decode ctx' >>= BI.decode  of
+      Right d -> d
+      Left e -> error e
+
 -- encryptGen :: forall c . BF.BlockCipher c => c -> Key -> ByteString -> IO (IV, ByteString)
 -- encryptGen _ key' content' = do
 --   (vi,bs) <- randIV

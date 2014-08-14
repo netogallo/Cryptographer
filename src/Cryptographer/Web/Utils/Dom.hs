@@ -25,7 +25,8 @@ import GHCJS.DOM.HTMLInputElement (htmlInputElementGetValue)
 import Data.ByteString.Char8 (pack, unpack)
 import GHCJS.DOM.Element (elementOnclick)
 import Cryptographer.Common
-              
+import Data.String
+
 pageElement name webUi = do
   c <- webViewGetDomDocument webUi
        >?> flip documentGetElementById name
@@ -43,17 +44,14 @@ decryptButton = fmap castToHTMLInputElement . pageElement decryptButtonName
 
 keyInput = fmap castToHTMLInputElement . pageElement keyInputName
 
-ivInput = fmap castToHTMLInputElement . pageElement ivInputName
-
-dataInput = fmap castToHTMLInputElement . pageElement dataInputName
+encText = fmap castToHTMLInputElement . pageElement encTextName
 
 contentDecrypt webUi = do
-  key <- pack <$> (keyInput webUi >>= htmlInputElementGetValue)
-  iv <- pack <$> (ivInput webUi >>= htmlInputElementGetValue)
-  val <- pack <$> (dataInput webUi >>= htmlInputElementGetValue)
+  key <- fromString <$> (keyInput webUi >>= htmlInputElementGetValue)
+  val <- fromString <$> (encText webUi >>= htmlInputElementGetValue)
   c <- contentDiv webUi
   let
-    dec = decrypt key iv val
+    dec = decrypt key val
   htmlElementSetInnerHTML c (unpack dec)
 
 mainGui webUi = do
