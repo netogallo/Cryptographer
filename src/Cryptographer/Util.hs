@@ -1,4 +1,4 @@
-{-# Language ScopedTypeVariables #-}
+{-# Language ScopedTypeVariables, TypeSynonymInstances, FlexibleInstances #-}
 module Cryptographer.Util where
 
 import Data.ByteString as BS

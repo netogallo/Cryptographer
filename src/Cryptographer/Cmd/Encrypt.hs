@@ -1,4 +1,4 @@
-{-# Language ScopedTypeVariables, MultiWayIf #-}
+{-# Language ScopedTypeVariables, MultiWayIf, RecordWildCards #-}
 module Cryptographer.Cmd.Encrypt where
 
 import Control.Monad (liftM)
@@ -20,20 +20,25 @@ data Cipher =
   | TwoFish256Cipher
   deriving Show
 
-data Encrypted =
-  TwoFish256Enc {tfSize :: Int, tfIV :: Word128, tfData :: [Word128]}
+data BlockEncrypted b = BlockEncrypted {
+  iV :: b,
+  encText :: [b]
+  }
 
-instance Binary Encrypted where
-  put (TwoFish256Enc s iv d) = do
-    put $ show TwoFish256Cipher
-    put s
-    put iv
-    put d
-  get = do
-    h <- get
-    case () of
-      _ | h == show TwoFish256Cipher ->
-        TwoFish256Enc <$> get <*> get <*> get      
+data SizeBlockEncrypted b = SizeBlockEncrypted {
+  block :: BlockEncrypted b,
+  dataSize :: Int
+  }
+
+type TwoFishEncrypted = SizeBlockEncrypted Word128
+
+instance Binary b => Binary (BlockEncrypted b) where
+  put BlockEncrypted{..} = put iV >> put encText
+  get = BlockEncrypted <$> get <*> get
+
+instance Binary b => Binary (SizeBlockEncrypted b) where
+  put SizeBlockEncrypted{..} = put block >> put dataSize
+  get = SizeBlockEncrypted <$> get <*> get
 
 cbcEnc vi enc = Prelude.foldr cata []
   where
@@ -51,12 +56,22 @@ decryptTF' k iv = cbcDec iv $ TF.decrypt (TF.mkStdCipher k)
 encryptTF key' text' = do
   iv <- randIV
   let ct = encryptTF' key iv text
-  let enc = BI.encode $ TwoFish256Enc (BS.length text') iv ct
+  let enc = BI.encode $ SizeBlockEncrypted (BlockEncrypted iv ct) (BS.length text')
   return $ BE.encode enc
   where
     key :: Word256
     key = Prelude.head . toBits $ hash key'
     text = toBits text'
+
+decryptTF key' encCtx' =
+  fromBits (dataSize encCtx) $ decryptTF' key (iV$block encCtx) (encText$block encCtx)
+  where
+    encCtx =
+      case BE.decode encCtx' >>= BI.decode of
+        Right e -> e
+        Left s -> error  s
+    key :: Word256
+    key = Prelude.head $ toBits key'
   
 addPadding blockSize bs 
   | BS.length bs `div` blockSize == 0 = (bs,0)

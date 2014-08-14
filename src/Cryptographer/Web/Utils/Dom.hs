@@ -24,12 +24,7 @@ import Cryptographer.Cmd.Encrypt (decrypt)
 import GHCJS.DOM.HTMLInputElement (htmlInputElementGetValue)
 import Data.ByteString.Char8 (pack, unpack)
 import GHCJS.DOM.Element (elementOnclick)
-
-contentName = "content"
-keyInputName = "keyInput"
-decryptButtonName = "decryptInput"
-ivInputName = "ivInput"
-dataInputName = "dataInput"
+import Cryptographer.Common
               
 pageElement name webUi = do
   c <- webViewGetDomDocument webUi
