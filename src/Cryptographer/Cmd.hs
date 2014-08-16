@@ -1,6 +1,6 @@
-module Cryptographer.Cmd (cmdMain, encryptTF) where
+module Cryptographer.Cmd (cmdMain) where
 
-import Cryptographer.Cmd.Encrypt (encryptTF)
+import Cryptographer.Cmd.Encrypt (encryptCBCGen, twoFishCipher)
 import Cryptographer.Cmd.Render (renderIO)
 import System.Environment (getArgs)
 import Control.Applicative ((<$>))
@@ -12,4 +12,4 @@ import Data.String
 cmdMain = do
   key <- fromString . head <$> getArgs
   text <- hGetContents stdin
-  encryptTF key text >>= renderIO stdout . pack . BL.unpack
+  encryptCBCGen twoFishCipher key text >>= renderIO stdout . pack . BL.unpack

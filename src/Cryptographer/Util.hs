@@ -4,15 +4,16 @@ module Cryptographer.Util where
 import Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import GHC.Word (Word8)
-import Data.Digest.Pure.SHA as S
+import qualified Data.Digest.Pure.SHA as S
 import Crypto.Cipher.Types as BF (makeIV,IV,BlockCipher)
 import Control.Applicative
 import Data.ByteString.Base64 (decode)
 import Data.Bits
 import Data.LargeWord
+import Data.Binary (decodeOrFail)
 
-hash :: ByteString -> ByteString
-hash = pack . BL.unpack . bytestringDigest . S.sha256 . BL.pack . unpack
+sha256 :: ByteString -> ByteString
+sha256 = pack . BL.unpack . S.bytestringDigest . S.sha256 . BL.pack . unpack
 
 tryDecode str =
   case decode str of
@@ -28,22 +29,6 @@ fromJust a opt =
   case opt of
     Just o -> o
     Nothing -> a
-
-class RandIV iv where
-  randIV :: IO iv
-
-instance BlockCipher c => RandIV (BF.IV c, ByteString) where
-  randIV = randIVBC
-
-instance RandIV Word128 where
-  randIV = return 9
-
-randIVBC :: BlockCipher c => IO (BF.IV c, ByteString)
-randIVBC = do
-  (Just iv) <- return $ makeIV bs
-  return (iv,bs)
-  where
-    bs = BS.replicate 8 1
 
 a >?> b = do
   a' <- a
@@ -86,4 +71,7 @@ fromBits l (b:bs)
     bl = finiteBitSize (undefined :: Word8)
     r = finiteBitSize b `div` bl
 
--- toBits bs 
+safeDecode d =
+  case decodeOrFail d of
+    Right (_,_,v) -> Right v
+    Left (_,_,e) -> Left e

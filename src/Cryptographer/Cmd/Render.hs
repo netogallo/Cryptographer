@@ -28,6 +28,7 @@ htmlBody RenderCTX{..} = H.body $ do
   H.input H.! As.type_ "hidden" H.! As.value (unsafeByteStringValue encText) H.! As.id encTextName
   (H.div H.! As.id controlsName) $ do
     H.input H.! As.type_ "text" H.! As.id keyInputName
+    H.input H.! As.type_ "submit" H.! As.id decryptButtonName H.! As.value "Decrypt"
   H.div "" H.! As.id contentName
 
 render c = H.html $ htmlBody c
@@ -39,7 +40,7 @@ renderIO o encText' = do
     let out = renderHtml $ render RenderCTX{alljs=js, encText=encText'}
     hPutStrLn o "<html><head><script type=\"text/javascript\">"
     hPutStrLn o js
-    hPutStrLn o "</head>"
+    hPutStrLn o "</script></head>"
     hPutStrLn o out
     hPutStrLn o "</html>"
     hFlush o

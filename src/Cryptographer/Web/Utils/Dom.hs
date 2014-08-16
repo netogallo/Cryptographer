@@ -20,7 +20,7 @@ import GHCJS.DOM.Types(
   castToHTMLInputElement)
 import Control.Monad.Trans (lift)
 import Cryptographer.Util
-import Cryptographer.Cmd.Encrypt (decrypt)
+import Cryptographer.Cmd.Encrypt (decryptCBC)
 import GHCJS.DOM.HTMLInputElement (htmlInputElementGetValue)
 import Data.ByteString.Char8 (pack, unpack)
 import GHCJS.DOM.Element (elementOnclick)
@@ -51,8 +51,10 @@ contentDecrypt webUi = do
   val <- fromString <$> (encText webUi >>= htmlInputElementGetValue)
   c <- contentDiv webUi
   let
-    dec = decrypt key val
-  htmlElementSetInnerHTML c (unpack dec)
+    dec' = decryptCBC key val
+  case dec' of
+    Right dec -> htmlElementSetInnerHTML c (unpack dec)
+    Left e -> error e
 
 mainGui webUi = do
   c <- contentDiv webUi

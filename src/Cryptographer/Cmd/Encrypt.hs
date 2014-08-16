@@ -1,4 +1,4 @@
-{-# Language ScopedTypeVariables, MultiWayIf, RecordWildCards #-}
+{-# Language ScopedTypeVariables, MultiWayIf, RecordWildCards, GADTs #-}
 module Cryptographer.Cmd.Encrypt where
 
 import Control.Monad (liftM)
@@ -7,38 +7,84 @@ import Control.Applicative ((<$>), (<*>))
 import Data.ByteString as BS
 import qualified Codec.Encryption.Twofish as TF
 import Cryptographer.Util
+import qualified Cryptographer.Common as C
 import qualified Crypto.Cipher.Types as BF
-import Data.Bits as BI
+import Data.Bits as BT
 import Data.Binary as BI
 import Data.LargeWord (Word256, Word128)
+import Debug.Trace (trace)
 
 type IV = ByteString
 type Key = ByteString
 
-data Cipher =
-  Blowfish256Cipher
-  | TwoFish256Cipher
-  deriving Show
+data BlockCipher =
+  Blowfish256
+  | TwoFish256
+  deriving (Show, Enum)
+
+data Mode = CBC deriving (Enum, Show)
+
+type CipherText t = [t]
+
+instance Binary BlockCipher where
+  put = put . fromEnum
+  get = toEnum <$> get
+
+instance Binary Mode where
+  put = put . fromEnum
+  get = toEnum <$> get
 
 data BlockEncrypted b = BlockEncrypted {
   iV :: b,
-  encText :: [b]
-  }
-
-data SizeBlockEncrypted b = SizeBlockEncrypted {
-  block :: BlockEncrypted b,
+  cipher :: BlockCipher,
+  version :: [Int],
+  mode :: Mode,
+  encText :: CipherText b,
   dataSize :: Int
-  }
-
-type TwoFishEncrypted = SizeBlockEncrypted Word128
+  } deriving Show
 
 instance Binary b => Binary (BlockEncrypted b) where
-  put BlockEncrypted{..} = put iV >> put encText
-  get = BlockEncrypted <$> get <*> get
+  put BlockEncrypted{..} = do
+    put iV
+    put cipher
+    put version
+    put mode
+    put encText
+    put dataSize
+  get = BlockEncrypted <$> get <*> get <*> get <*> get <*> get <*> get
 
-instance Binary b => Binary (SizeBlockEncrypted b) where
-  put SizeBlockEncrypted{..} = put block >> put dataSize
-  get = SizeBlockEncrypted <$> get <*> get
+data CryptographerCipher k b where
+  CC :: FiniteBits b => {
+    hash :: ByteString -> k,
+    enc :: k -> b -> b,
+    dec :: k -> b -> b,
+    randIV :: IO b,
+    buildData :: Mode -> Int -> b -> CipherText b -> BlockEncrypted b,
+    valid :: BlockEncrypted b -> Bool
+    } -> CryptographerCipher k b
+
+twoFishCipher = CC {
+  hash = Prelude.head . toBits . sha256 :: ByteString -> Word256,
+  enc = \k -> TF.encrypt (TF.mkStdCipher k),
+  dec = \k -> TF.decrypt (TF.mkStdCipher k),
+  randIV = return 0,
+  buildData = tfBuild,
+  valid = tfValid
+  }
+  where
+    tfBuild m size b ct =
+      BlockEncrypted {
+        iV = b,
+        cipher = TwoFish256,
+        version = C.version,
+        mode = m,
+        encText = ct,
+        dataSize = size
+        }
+    tfValid BlockEncrypted{..} =
+      case cipher of
+        TwoFish256 -> True
+        _ -> False
 
 cbcEnc vi enc = Prelude.foldr cata []
   where
@@ -53,62 +99,22 @@ encryptTF' k iv = cbcEnc iv $ TF.encrypt (TF.mkStdCipher k)
 
 decryptTF' k iv = cbcDec iv $ TF.decrypt (TF.mkStdCipher k)
 
-encryptTF key' text' = do
+encryptCBCGen CC{..} key' text' = do
   iv <- randIV
-  let ct = encryptTF' key iv text
-  let enc = BI.encode $ SizeBlockEncrypted (BlockEncrypted iv ct) (BS.length text')
+  let ct = cbcEnc iv (enc key) text
+  let enc = BI.encode $ buildData CBC (BS.length text') iv ct
   return $ BE.encode enc
   where
-    key :: Word256
-    key = Prelude.head . toBits $ hash key'
+    key = hash key'
     text = toBits text'
 
-decryptTF key' encCtx' =
-  fromBits (dataSize encCtx) $ decryptTF' key (iV$block encCtx) (encText$block encCtx)
+decryptCBCGen CC{..} key' BlockEncrypted{..} =
+  fromBits dataSize $ cbcDec iV (dec key) encText
   where
-    encCtx =
-      case BE.decode encCtx' >>= BI.decode of
-        Right e -> e
-        Left s -> error  s
-    key :: Word256
-    key = Prelude.head $ toBits key'
-  
-addPadding blockSize bs 
-  | BS.length bs `div` blockSize == 0 = (bs,0)
-  | otherwise = (BS.concat [bs,BS.replicate e 0], e)
-  where
-    e = BS.length bs `mod` blockSize
+    key = hash key'
 
-encrypt :: Cipher -> Key -> ByteString -> IO (IV, ByteString)
-encrypt = undefined 
-
-decrypt key ctx' = decryptTF key ctx
-  where
-    ctx = case BE.decode ctx' >>= BI.decode  of
-      Right d -> d
-      Left e -> error e
-
--- encryptGen :: forall c . BF.BlockCipher c => c -> Key -> ByteString -> IO (IV, ByteString)
--- encryptGen _ key' content' = do
---   (vi,bs) <- randIV
---   let
---     e = BF.cfbEncrypt cipher vi content
---   return (BE.encode bs, BE.encode e)
---   where
---     (content,_) = addPadding (BF.blockSize cipher) content'
---     cipher = BF.cipherInit key
---     key :: BF.Key c
---     key = case BF.makeKey $ hash key' of
---       Right k -> k
---       Left e -> error $ "Failed to create key: " ++ show e
-               
-
--- decrypt :: forall c . BF.BlockCipher c => c -> Key -> IV -> ByteString -> ByteString 
--- decrypt _ key' iv' content' = BF.cfbDecrypt cipher iv content
---   where
---     cipher = BF.cipherInit key
---     key :: BF.Key c
---     key = fromEither $ BF.makeKey $ hash key'
---     iv = fromJust (error "Invalid initialization vector")
---          $ BF.makeIV (tryDecode iv')
---     content = tryDecode content'  
+decryptCBC key ctx' = do
+  ctx <- BE.decode ctx' >>= safeDecode
+  case () of
+    _ | valid twoFishCipher ctx ->
+      return $ decryptCBCGen twoFishCipher key ctx
