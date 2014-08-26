@@ -11,9 +11,12 @@ import Data.ByteString.Base64 (decode)
 import Data.Bits
 import Data.LargeWord
 import Data.Binary (decodeOrFail)
+import Crypto.Random
 
 sha256 :: ByteString -> ByteString
 sha256 = pack . BL.unpack . S.bytestringDigest . S.sha256 . BL.pack . unpack
+
+lz = BL.pack . unpack
 
 tryDecode str =
   case decode str of
@@ -75,3 +78,16 @@ safeDecode d =
   case decodeOrFail d of
     Right (_,_,v) -> Right v
     Left (_,_,e) -> Left e
+
+randomBS :: Int -> IO ByteString
+randomBS s = 
+  rnd <$> newGenIO
+  where
+    rnd r =
+      case genBytes s (r :: SystemRandom) of
+        Right bs -> fst bs
+        Left err -> error $ "Random Gen failed with length: " ++ show s
+
+randomW128 :: IO Word128
+randomW128 =
+  Prelude.head . toBits  <$> randomBS 128

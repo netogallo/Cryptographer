@@ -64,10 +64,10 @@ data CryptographerCipher k b where
     } -> CryptographerCipher k b
 
 twoFishCipher = CC {
-  hash = Prelude.head . toBits . sha256 :: ByteString -> Word256,
+  hash = Prelude.head . (++ [0]) . toBits . sha256 :: ByteString -> Word256,
   enc = \k -> TF.encrypt (TF.mkStdCipher k),
   dec = \k -> TF.decrypt (TF.mkStdCipher k),
-  randIV = return 0,
+  randIV = randomW128,
   buildData = tfBuild,
   valid = tfValid
   }
@@ -114,7 +114,7 @@ decryptCBCGen CC{..} key' BlockEncrypted{..} =
     key = hash key'
 
 decryptCBC key ctx' = do
-  ctx <- BE.decode ctx' >>= safeDecode
+  ctx <- BE.decode (lz ctx') >>= safeDecode
   case () of
     _ | valid twoFishCipher ctx ->
       return $ decryptCBCGen twoFishCipher key ctx
