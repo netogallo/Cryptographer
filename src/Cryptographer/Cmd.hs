@@ -15,9 +15,11 @@ import Cryptographer.Cmd.Processors
 
 data Settings = S{
 
-  key :: String
+  key :: String,
+  extraKey :: Maybe String,
+  append :: Maybe String
   } deriving (Generic)
-
+             
 cmdMain = do
   settings <- kwargs getBuilders <$> getArgs
   case settings of

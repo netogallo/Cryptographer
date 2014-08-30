@@ -13,6 +13,12 @@ import Data.Bits as BT
 import Data.Binary as BI
 import Data.LargeWord (Word256, Word128)
 import Debug.Trace (trace)
+import Data.Either (either)
+import qualified Pipes as P
+import qualified Pipes.Prelude as Pr
+import Control.Monad.Identity (runIdentity)
+import Pipes.Core
+import qualified Data.ByteString.Lazy as BL
 
 type IV = ByteString
 type Key = ByteString
@@ -54,7 +60,7 @@ instance Binary b => Binary (BlockEncrypted b) where
   get = BlockEncrypted <$> get <*> get <*> get <*> get <*> get <*> get
 
 data CryptographerCipher k b where
-  CC :: FiniteBits b => {
+  CC :: (FiniteBits b) => {
     hash :: ByteString -> k,
     enc :: k -> b -> b,
     dec :: k -> b -> b,
@@ -64,7 +70,7 @@ data CryptographerCipher k b where
     } -> CryptographerCipher k b
 
 twoFishCipher = CC {
-  hash = Prelude.head . (++ [0]) . toBits . sha256 :: ByteString -> Word256,
+  hash = \bs -> (runIdentity $ (either undefined fst <$> hash bs) :: Word256),
   enc = \k -> TF.encrypt (TF.mkStdCipher k),
   dec = \k -> TF.decrypt (TF.mkStdCipher k),
   randIV = randomW128,
@@ -72,6 +78,7 @@ twoFishCipher = CC {
   valid = tfValid
   }
   where
+    hash bs = P.next $ toBits $ sha256 bs
     tfBuild m size b ct =
       BlockEncrypted {
         iV = b,
@@ -86,10 +93,13 @@ twoFishCipher = CC {
         TwoFish256 -> True
         _ -> False
 
-cbcEnc vi enc = Prelude.foldr cata []
+cbcEnc vi enc = cata vi
   where
-    cata b' [] = [enc (vi `xor` b')]
-    cata b' (b:bs) = enc (b `xor` b') : b : bs
+--    cata b' = yield $ enc (vi `xor` b')
+    cata b' =
+      let
+        b = (enc (b `xor` b'))
+      in P.yield b >> cata b
 
 cbcDec vi dec = snd . Prelude.foldr cata (vi,[])
   where
@@ -99,14 +109,17 @@ encryptTF' k iv = cbcEnc iv $ TF.encrypt (TF.mkStdCipher k)
 
 decryptTF' k iv = cbcDec iv $ TF.decrypt (TF.mkStdCipher k)
 
+encryptCBCGen :: forall k w . (FiniteBits w, Num w, Binary w) => CryptographerCipher k w -> ByteString -> ByteString -> IO BL.ByteString
 encryptCBCGen CC{..} key' text' = do
   iv <- randIV
-  let ct = cbcEnc iv (enc key) text
-  let enc = BI.encode $ buildData CBC (BS.length text') iv ct
+  let
+    enc = BI.encode $ buildData CBC (BS.length text') iv $ ct iv
   return $ BE.encode enc
   where
     key = hash key'
+    text :: Monad m => Producer w m ()
     text = toBits text'
+    ct iv = Pr.toList $ text P.>-> cbcEnc iv (enc key)
 
 decryptCBCGen CC{..} key' BlockEncrypted{..} =
   fromBits dataSize $ cbcDec iV (dec key) encText

@@ -12,6 +12,11 @@ import Data.Bits
 import Data.LargeWord
 import Data.Binary (decodeOrFail)
 import Crypto.Random
+import qualified Pipes as P
+import qualified Pipes.Prelude as Pr
+import Data.Maybe (fromJust)
+import Control.Monad
+import Data.Either
 
 sha256 :: ByteString -> ByteString
 sha256 = pack . BL.unpack . S.bytestringDigest . S.sha256 . BL.pack . unpack
@@ -28,11 +33,6 @@ fromEither e =
     Right r -> r
     Left e -> error $ show e
 
-fromJust a opt =
-  case opt of
-    Just o -> o
-    Nothing -> a
-
 a >?> b = do
   a' <- a
   case a' of
@@ -47,17 +47,23 @@ mkBits bs w
     byte = BS.head bs
     word = w .|. fromIntegral byte
 
-toBits :: forall w . (FiniteBits w, Num w) => ByteString -> [w]
-toBits bs' = Prelude.reverse . snd $ Prelude.foldl cata (bs',[]) res'
+toBits :: forall w m a . (FiniteBits w, Num w, Monad m) => ByteString -> P.Producer w m ()
+toBits bs' = P.for (ext l $ bs bs') (\b -> P.yield $ mkBits b 0)  
   where
+    bs str
+      | BS.length str > r = do
+        P.yield $ BS.take r str
+        bs $ BS.drop r str
+      | otherwise = P.yield str
+    ext i p = do
+      (v,p') <- either (const (e,p)) id <$> P.next p
+      P.yield v
+      unless (i <= 0) $ ext (i-1) p'
+    e = BS.pack $ Prelude.take r $ repeat 0
     s = finiteBitSize (undefined :: w)
     b = finiteBitSize (undefined :: Word8)
     r = s `div` b
     l = 1 + (BS.length bs' * b) `div` s
-    res' = [1 .. l]
-    cata (bs, ws) _
-      | BS.length bs > r = (BS.drop r bs, mkBits (BS.take r bs) 0 : ws)
-      | otherwise = (bs, mkBits bs 0 : ws)
 
 mkBs :: (Integral w, FiniteBits w) => w -> ByteString -> ByteString
 mkBs wi = snd . BS.mapAccumR cata wi
@@ -86,8 +92,9 @@ randomBS s =
     rnd r =
       case genBytes s (r :: SystemRandom) of
         Right bs -> fst bs
-        Left err -> error $ "Random Gen failed with length: " ++ show s
+        Left _ -> error $ "Random Gen failed with length: " ++ show s
 
 randomW128 :: IO Word128
-randomW128 =
-  Prelude.head . toBits  <$> randomBS 128
+randomW128 = either undefined fst <$> (P.next $ do
+  r <- P.lift (randomBS 128)
+  toBits r)
