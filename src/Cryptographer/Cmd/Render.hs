@@ -1,18 +1,21 @@
 {-# Language OverloadedStrings, RecordWildCards #-}
 module Cryptographer.Cmd.Render where
 import Text.Blaze.Html5
-import Text.Blaze.Html5.Attributes
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as As
 import qualified Cryptographer.Common as C
-import Data.ByteString (ByteString(..))
-import Text.Blaze.Html.Renderer.String (renderHtml)
+import qualified Data.ByteString as BS
 import Data.String
 import System.IO
+import qualified Pipes.ByteString as Pb
+import qualified Pipes as P
+import qualified Pipes.Prelude as Pr
+import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
+import Control.Applicative ((<$>))
 
 data RenderCTX = RenderCTX {
   alljs :: String,
-  encText :: ByteString
+  encText :: BS.ByteString
   }
 
 encTextName = fromString C.encTextName
@@ -33,17 +36,18 @@ htmlBody RenderCTX{..} = H.body $ do
 
 render c = H.html $ htmlBody c
 
-renderIO o encText' = do
-  f <- C.allJS
+renderIO o encText'' = do
+  f <- P.liftIO C.allJS
+  encText' <- BS.concat <$> Pr.toListM encText''
   withFile f ReadMode $ \h -> do
-    js <-  hGetContents h
-    let out = renderHtml $ render RenderCTX{alljs=js, encText=encText'}
-    hPutStrLn o "<html><head><script type=\"text/javascript\">"
-    hPutStrLn o js
-    hPutStrLn o "</script></head>"
-    hPutStrLn o out
-    hPutStrLn o "</html>"
-    hFlush o
+    let
+      out = Pb.toHandle o
+      js = Pb.fromHandle h
 
-  
-    
+    let renderer = do
+          P.yield "<html><head><script type=\"text/javascript\">"
+          js
+          P.yield "</script></head>"
+          Pb.fromLazy . renderHtml $ render RenderCTX{alljs="", encText=encText'}
+          P.yield "</html>"
+    P.runEffect (renderer P.>-> out)

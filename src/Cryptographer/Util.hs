@@ -1,11 +1,10 @@
-{-# Language ScopedTypeVariables, TypeSynonymInstances, FlexibleInstances #-}
+{-# Language ScopedTypeVariables, TypeSynonymInstances, FlexibleInstances, FlexibleContexts #-}
 module Cryptographer.Util where
 
 import Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import GHC.Word (Word8)
 import qualified Data.Digest.Pure.SHA as S
-import Crypto.Cipher.Types as BF (makeIV,IV,BlockCipher)
 import Control.Applicative
 import Data.ByteString.Base64 (decode)
 import Data.Bits
@@ -13,13 +12,23 @@ import Data.LargeWord
 import Data.Binary (decodeOrFail)
 import Crypto.Random
 import qualified Pipes as P
-import qualified Pipes.Prelude as Pr
-import Data.Maybe (fromJust)
 import Control.Monad
-import Data.Either
+import Control.Monad.Trans.State.Strict as Ms
+import Debug.Trace (trace)
 
 sha256 :: ByteString -> ByteString
 sha256 = pack . BL.unpack . S.bytestringDigest . S.sha256 . BL.pack . unpack
+
+reducePipe :: Monad m => (s -> v -> s) -> s -> P.Producer v m r -> m (r,s)
+reducePipe f s pr'' = Ms.runStateT (cata pr'') s
+  where
+    cata pr = do
+      n <- P.lift $ P.next pr
+      case n of
+        Left r -> return r
+        Right (v, pr') -> do
+          trace "w2" $ modify (flip f v)
+          cata pr'
 
 lz = BL.pack . unpack
 
@@ -47,23 +56,33 @@ mkBits bs w
     byte = BS.head bs
     word = w .|. fromIntegral byte
 
-toBits :: forall w m a . (FiniteBits w, Num w, Monad m) => ByteString -> P.Producer w m ()
-toBits bs' = P.for (ext l $ bs bs') (\b -> P.yield $ mkBits b 0)  
+bytes :: (Monad m) => P.Proxy () ByteString () Word8 (StateT Int m) ()
+bytes = do
+  bs <- P.await
+  P.lift $ modify (+ BS.length bs)
+  BS.foldl (\s b -> s >> P.yield b) (return ()) bs
+
+bits :: forall w a m . (FiniteBits w, Num w, Monad m) => P.Producer Word8 m a -> P.Producer w m a
+bits p = do
+  (s,p',done) <- foldM cata (0,p,Right ()) $ Prelude.replicate chunk ()
+  trace "w0" $ P.yield s
+  case done of
+    Left a -> return a
+    Right () -> bits p'
+
   where
-    bs str
-      | BS.length str > r = do
-        P.yield $ BS.take r str
-        bs $ BS.drop r str
-      | otherwise = P.yield str
-    ext i p = do
-      (v,p') <- either (const (e,p)) id <$> P.next p
-      P.yield v
-      unless (i <= 0) $ ext (i-1) p'
-    e = BS.pack $ Prelude.take r $ repeat 0
-    s = finiteBitSize (undefined :: w)
-    b = finiteBitSize (undefined :: Word8)
-    r = s `div` b
-    l = 1 + (BS.length bs' * b) `div` s
+    cata (s,pr,_) _ = do
+      eByte <- P.lift $ P.next pr
+      let (b,pr',done) = case eByte of
+            Left a -> (0,pr,Left a)
+            Right (b',pr'') -> (b',pr'',Right ())
+      return (rotateL s bSize .|. toW b,pr',done)
+      
+    wSize = finiteBitSize (undefined :: w)
+    bSize = finiteBitSize (undefined :: Word8)
+    chunk = wSize `div` bSize
+    toW :: Word8 -> w
+    toW = fromInteger . toInteger
 
 mkBs :: (Integral w, FiniteBits w) => w -> ByteString -> ByteString
 mkBs wi = snd . BS.mapAccumR cata wi
@@ -94,7 +113,17 @@ randomBS s =
         Right bs -> fst bs
         Left _ -> error $ "Random Gen failed with length: " ++ show s
 
-randomW128 :: IO Word128
-randomW128 = either undefined fst <$> (P.next $ do
-  r <- P.lift (randomBS 128)
-  toBits r)
+
+pRandomBs :: Int -> P.Producer ByteString (StateT Int IO) ()
+pRandomBs l = forever $ do
+  bs <- P.liftIO $ randomBS l
+  P.yield bs
+  pRandomBs l
+
+-- randomW128 :: P.Producer Word128 (StateT Int IO) ()
+randomW :: (FiniteBits w, Num w) => IO w
+randomW = evalStateT
+  (either undefined fst <$> (P.next $ (bits $ pRandomBs 1024 P.>-> bytes)))
+  0
+  
+randomW128 = randomW :: IO Word128

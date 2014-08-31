@@ -5,13 +5,11 @@ import Cryptographer.Cmd.Encrypt (encryptCBCGen, twoFishCipher)
 import Cryptographer.Cmd.Render (renderIO)
 import System.Environment (getArgs)
 import Control.Applicative ((<$>))
-import Data.ByteString (hGetContents, pack)
-import qualified Data.ByteString.Lazy as BL
 import System.IO (stdin, stdout, hPutStrLn, stderr)
 import Data.String
 import System.Console.CmdArgs.Generic (kwargs, getBuilders)
 import GHC.Generics
-import Cryptographer.Cmd.Processors
+import qualified Pipes.ByteString as PB
 
 data Settings = S{
 
@@ -24,6 +22,5 @@ cmdMain = do
   settings <- kwargs getBuilders <$> getArgs
   case settings of
     Right s -> do
-      text <- hGetContents stdin
-      encryptCBCGen twoFishCipher (fromString $ key s) text >>= renderIO stdout . pack . BL.unpack
+      renderIO stdout $ encryptCBCGen twoFishCipher (fromString $ key s) PB.stdin
     Left e -> hPutStrLn stderr (concat e)
