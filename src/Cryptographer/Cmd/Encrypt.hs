@@ -17,7 +17,6 @@ import qualified Control.Monad.Trans.State.Strict as S
 import Data.LargeWord (Word256)
 import Pipes.Binary as Pb
 import Pipes.Lift as Pl
-import Debug.Trace (trace)
 
 type IV = ByteString
 type Key = ByteString
@@ -96,7 +95,7 @@ cbcEnc :: (FiniteBits b, Monad m, Show b) => (b -> b) -> b -> S.StateT b m b
 cbcEnc enc b = do
   b' <- S.get
   let b'' = enc (b' `xor` b)
-  trace (show b') $ S.put b''
+  S.put b''
   return b''
 
 cbcDec vi dec = snd . Prelude.foldr cata (vi,[])
@@ -116,7 +115,7 @@ encryptCBCGen CC{..} key' text' = do
   iv <- P.lift $ randIV
   (l,ct) <- P.lift $ crypt iv
   let
-    encoded = Pb.encode $ buildData CBC l iv (Prelude.reverse $ trace ("theBS:" ++ show ct) ct)
+    encoded = Pb.encode $ buildData CBC l iv (Prelude.reverse ct)
   encoded P.>-> Pr.map (\s -> BE.encode $ BL.fromStrict s) P.>-> (P.await >>= P.each . BL.toChunks)
   where
     key = hash key'
@@ -125,7 +124,7 @@ encryptCBCGen CC{..} key' text' = do
     crypt :: w -> IO (Int,[w])
     crypt iv =
       let pr = Pl.execStateP 0 text P.>-> Pl.evalStateP iv (Pr.mapM (cbcEnc (enc key)))
-      in reducePipe (\s v -> let x = (s ++ [v]) in trace (show x) x ) [] pr
+      in reducePipe (\s v -> (s ++ [v])) [] pr
 
 decryptCBCGen CC{..} key' BlockEncrypted{..} =
   fromBits dataSize $ cbcDec iV (dec key) encText
