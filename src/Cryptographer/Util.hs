@@ -15,7 +15,6 @@ import qualified Pipes as P
 import qualified Pipes.Parse as Pa
 import Control.Monad
 import Control.Monad.Trans.State.Strict as Ms
-import Debug.Trace (trace)
 
 sha256 :: ByteString -> ByteString
 sha256 = pack . BL.unpack . S.bytestringDigest . S.sha256 . BL.pack . unpack
@@ -28,7 +27,7 @@ reducePipe f s pr'' = Ms.runStateT (cata pr'') s
       case n of
         Left r -> return r
         Right (v, pr') -> do
-          trace "w2" $ modify (flip f v)
+          modify (flip f v)
           cata pr'
 
 lz = BL.pack . unpack
@@ -108,7 +107,6 @@ pRandomBs :: Int -> P.Producer ByteString (StateT Int IO) ()
 pRandomBs l = forever $ do
   bs <- P.liftIO $ randomBS l
   P.yield bs
-  pRandomBs l
 
 -- randomW128 :: P.Producer Word128 (StateT Int IO) ()
 randomW :: (FiniteBits w, Num w) => IO w

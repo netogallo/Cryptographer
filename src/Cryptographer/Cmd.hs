@@ -8,16 +8,17 @@ import Control.Applicative ((<$>))
 import System.IO (stdin, stdout, hPutStrLn, stderr)
 import Data.String
 import System.Console.CmdArgs.Generic (kwargs, getBuilders)
-import GHC.Generics
+import GHC.Generics (Generic(..))
 import qualified Pipes.ByteString as PB
 
 data Settings = S{
 
-  key :: String,
-  extraKey :: Maybe String,
-  append :: Maybe String
+  key :: String
+--  extraKey :: Maybe String,
+--  append :: Maybe String
   } deriving (Generic)
-             
+
+cmdMain :: IO ()
 cmdMain = do
   settings <- kwargs getBuilders <$> getArgs
   case settings of
