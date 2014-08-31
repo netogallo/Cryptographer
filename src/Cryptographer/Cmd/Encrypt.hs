@@ -92,13 +92,12 @@ twoFishCipher = CC {
         TwoFish256 -> True
         _ -> False
 
-cbcEnc :: (FiniteBits b, Monad m, Show b) => (b -> b) -> b -> S.StateT b m b -- -> P.Proxy () b () b (S.StateT b m) ()
+cbcEnc :: (FiniteBits b, Monad m, Show b) => (b -> b) -> b -> S.StateT b m b
 cbcEnc enc b = do
   b' <- S.get
   let b'' = enc (b' `xor` b)
   trace (show b') $ S.put b''
   return b''
-  -- P.yield b
 
 cbcDec vi dec = snd . Prelude.foldr cata (vi,[])
   where
@@ -117,15 +116,15 @@ encryptCBCGen CC{..} key' text' = do
   iv <- P.lift $ randIV
   (l,ct) <- P.lift $ crypt iv
   let
-    encoded = Pb.encode $ buildData CBC l iv (Prelude.reverse ct)
-  encoded P.>-> Pr.map (\s -> let r = BE.encode $ BL.fromStrict s in trace (show r) r) P.>-> (P.await >>= P.each . BL.toChunks)
+    encoded = Pb.encode $ buildData CBC l iv (Prelude.reverse $ trace ("theBS:" ++ show ct) ct)
+  encoded P.>-> Pr.map (\s -> BE.encode $ BL.fromStrict s) P.>-> (P.await >>= P.each . BL.toChunks)
   where
     key = hash key'
     text :: Producer w (S.StateT Int IO) ()
     text = bits $ text' P.>-> bytes
     crypt :: w -> IO (Int,[w])
     crypt iv =
-      let pr = Pl.execStateP 0 $ text P.>-> Pl.evalStateP iv (Pr.mapM (cbcEnc (enc key)))
+      let pr = Pl.execStateP 0 text P.>-> Pl.evalStateP iv (Pr.mapM (cbcEnc (enc key)))
       in reducePipe (\s v -> let x = (s ++ [v]) in trace (show x) x ) [] pr
 
 decryptCBCGen CC{..} key' BlockEncrypted{..} =

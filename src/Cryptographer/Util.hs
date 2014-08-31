@@ -12,6 +12,7 @@ import Data.LargeWord
 import Data.Binary (decodeOrFail)
 import Crypto.Random
 import qualified Pipes as P
+import qualified Pipes.Parse as Pa
 import Control.Monad
 import Control.Monad.Trans.State.Strict as Ms
 import Debug.Trace (trace)
@@ -47,48 +48,37 @@ a >?> b = do
   case a' of
     Nothing -> return Nothing
     Just a'' -> b a''
-
-mkBits :: (Num b, FiniteBits b) => ByteString -> b -> b
-mkBits bs w
-  | BS.length bs == 1 = word
-  | BS.length bs > 1 = mkBits (BS.tail bs) (rotateL word (finiteBitSize byte))
-  where
-    byte = BS.head bs
-    word = w .|. fromIntegral byte
-
+    
 bytes :: (Monad m) => P.Proxy () ByteString () Word8 (StateT Int m) ()
 bytes = do
   bs <- P.await
   P.lift $ modify (+ BS.length bs)
-  BS.foldl (\s b -> s >> P.yield b) (return ()) bs
+  P.each $ BS.unpack bs
 
-bits :: forall w a m . (FiniteBits w, Num w, Monad m) => P.Producer Word8 m a -> P.Producer w m a
-bits p = do
-  (s,p',done) <- foldM cata (0,p,Right ()) $ Prelude.replicate chunk ()
-  trace "w0" $ P.yield s
-  case done of
-    Left a -> return a
-    Right () -> bits p'
+bits :: forall w a m . (FiniteBits w, Num w, Monad m, Functor m) => P.Producer Word8 m a -> P.Producer w m ()
+bits pr = do
+  ((end,r), pr') <- P.lift $ Pa.runStateT (Prelude.foldl cata (False,0) <$> replicateM chunk Pa.draw) pr
+  P.yield r
+  unless end $ bits pr'
 
   where
-    cata (s,pr,_) _ = do
-      eByte <- P.lift $ P.next pr
-      let (b,pr',done) = case eByte of
-            Left a -> (0,pr,Left a)
-            Right (b',pr'') -> (b',pr'',Right ())
-      return (rotateL s bSize .|. toW b,pr',done)
+    cata (_,s) x' =
+      let (end,x) = case x' of
+            Nothing -> (True,0)
+            Just a-> (False,a)
+      in (end, shiftL s bSize .|. fromIntegral x)
       
     wSize = finiteBitSize (undefined :: w)
-    bSize = finiteBitSize (undefined :: Word8)
     chunk = wSize `div` bSize
-    toW :: Word8 -> w
-    toW = fromInteger . toInteger
 
-mkBs :: (Integral w, FiniteBits w) => w -> ByteString -> ByteString
-mkBs wi = snd . BS.mapAccumR cata wi
+bSize = finiteBitSize (undefined :: Word8)
+
+mkBs :: forall w . (Integral w, FiniteBits w) => w -> ByteString -> ByteString
+mkBs wi = snd . BS.mapAccumL cata wi -- (rotateR wi (wSize - bSize))
   where
     chopper = fromIntegral $ complement (0 :: Word8)
-    cata w b = (rotateR w (finiteBitSize b), fromIntegral (w .&. chopper))
+    cata w b = (rotateL w (finiteBitSize b), fromIntegral (w .&. chopper))
+    wSize = finiteBitSize (undefined :: w)
 
 fromBits :: forall w . (FiniteBits w, Integral w) => Int -> [w] -> ByteString
 fromBits _ [] = BS.empty

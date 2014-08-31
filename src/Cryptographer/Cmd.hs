@@ -21,6 +21,6 @@ data Settings = S{
 cmdMain = do
   settings <- kwargs getBuilders <$> getArgs
   case settings of
-    Right s -> do
+    Right s -> 
       renderIO stdout $ encryptCBCGen twoFishCipher (fromString $ key s) PB.stdin
     Left e -> hPutStrLn stderr (concat e)
