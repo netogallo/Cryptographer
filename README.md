@@ -1,10 +1,10 @@
-== Cryptographer: Convenient Encryption ==
+# Cryptographer: Convenient Encryption #
 
 Cryptographer is a tool designed to encrypt text in such a way that it is easily accessible from many devices without requiring anything but a web browser. To achieve this, it generates an html file with the decryption algorithm included as inline JavaScript and provides an input field for the key.
 
 Currently, it uses the [Twofish](https://www.schneier.com/twofish.html) cipher which is secure, fast and free. The mode of operation used is CBC.
 
-=== Setup ===
+## Setup
 
 The program can be installed using Cabal, however it requires the [Kwargs](https://github.com/netogallo/kwargs) package which is not yet available in hackage. The simple steps are:
 
@@ -28,7 +28,7 @@ The program can be installed using Cabal, however it requires the [Kwargs](https
 
 This generates an executable called *cryptographer* inside your cabal bin directory.
 
-=== Usage ===
+## Usage
 
 Currently, there is very limited functionality limited to taking data on the standard input, encrypting it with the provided key and writing the generated html to the standard output. For example:
 
