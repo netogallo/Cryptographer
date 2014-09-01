@@ -1,7 +1,8 @@
 {-# Language DeriveGeneric #-}
 module Cryptographer.Cmd (cmdMain) where
 
-import Cryptographer.Cmd.Encrypt (encryptCBCGen, twoFishCipher)
+import Cryptographer.Cmd.Encrypt (encryptCBCGen)
+import Cryptographer.Cmd.Types (twoFishCipher)
 import Cryptographer.Cmd.Render (renderIO)
 import System.Environment (getArgs)
 import Control.Applicative ((<$>))

@@ -19,72 +19,67 @@ data-files: *.js
 data-dir: data
 
 
--- executable cryptographer
---   main-is:             MainCmd.hs
---   -- Used to trick ghc-mod with cabal defined modules
---   cpp-options:         -DCABAL
---   other-modules:       Cryptographer.Util
---                        ,Cryptographer.Cmd
---                        ,Cryptographer.Cmd.Encrypt
---                        ,Cryptographer.Cmd.Render
---                        ,Cryptographer.Common
---                        ,Cryptographer.Cmd.Processors
---                        ,Paths_cryptographer
---  other-extensions:    
---  build-depends:       base >=4.7 && <4.8
---                       ,kwargs >= 0.1
---                       ,crypto-api
---                       ,crypto-cipher-types >= 0.0.9
---                       ,cipher-blowfish >= 0.0.3
---                       ,Twofish >= 0.3
---                       ,html-conduit >= 1.0
---                       ,xml-conduit >= 1.0
---                       ,array >= 0.5
---                       ,base64-bytestring >= 0.1
---                       ,SHA >= 1.4
---                       ,bytestring
---                       ,largeword
---                       ,blaze-html >= 0.7
---                       ,blaze-markup >= 0.6
---                       ,binary >= 0.7
---                       ,text >= 1.0
---                       ,pipes >= 4.0
---                       ,mtl
---                       ,transformers >= 0.3
---                       ,pipes-bytestring >= 2.1
---                       ,pipes-parse >= 3.0
---                       ,pipes-binary >= 0.4
---  hs-source-dirs:      src
---  default-language:    Haskell2010
-  
-executable cryptographerUi
-  main-is:             Main.hs
-  Build-Tools:         ghcjs
+executable cryptographer
+  main-is:             MainCmd.hs
+  -- Used to trick ghc-mod with cabal defined modules
+  cpp-options:         -DCABAL
   other-modules:       Cryptographer.Util
-                       ,Cryptographer.Web
-                       ,Cryptographer.Web.Utils.Dom
+                       ,Cryptographer.Cmd
+                       ,Cryptographer.Cmd.Encrypt
+                       ,Cryptographer.Cmd.Render
                        ,Cryptographer.Common
-  -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8
+                       ,Cryptographer.Cmd.Processors
+                       ,Paths_cryptographer
+ other-extensions:    
+ build-depends:       base >=4.7 && <4.8
+                      ,kwargs >= 0.1
                       ,crypto-api
                       ,crypto-cipher-types >= 0.0.9
                       ,cipher-blowfish >= 0.0.3
                       ,Twofish >= 0.3
+                      ,html-conduit >= 1.0
+                      ,xml-conduit >= 1.0
+                      ,array >= 0.5
                       ,base64-bytestring >= 0.1
                       ,SHA >= 1.4
                       ,bytestring
                       ,largeword
+                      ,blaze-html >= 0.7
+                      ,blaze-markup >= 0.6
                       ,binary >= 0.7
+                      ,text >= 1.0
                       ,pipes >= 4.0
+                      ,mtl
                       ,transformers >= 0.3
                       ,pipes-bytestring >= 2.1
                       ,pipes-parse >= 3.0
                       ,pipes-binary >= 0.4
-                      ,mtl
-                      ,ghcjs-dom >= 0.1.0
+ hs-source-dirs:      src
+ default-language:    Haskell2010
+  
+-- executable cryptographerUi
+--   main-is:             Main.hs
+--   Build-Tools:         ghcjs
+--   other-modules:       Cryptographer.BaseUtil
+--                        ,Cryptographer.Web
+--                        ,Cryptographer.Web.Utils.Dom
+--                        ,Cryptographer.Common
+--   -- other-extensions:    
+--   build-depends:       base >=4.7 && <4.8
+--                       ,crypto-api
+--                       ,crypto-cipher-types >= 0.0.9
+--                       ,cipher-blowfish >= 0.0.3
+--                       ,Twofish >= 0.3
+--                       ,base64-bytestring >= 0.1
+--                       ,SHA >= 1.4
+--                       ,bytestring
+--                       ,largeword
+--                       ,binary >= 0.7
+--                       ,transformers
+--                       ,ghcjs-dom >= 0.1.0
 
-  hs-source-dirs:      src
-  default-language:    Haskell2010
+--   hs-source-dirs:      src
+--   default-language:    Haskell2010
 
 -- executable cryptographerUi
 --   main-is:             Main.hs

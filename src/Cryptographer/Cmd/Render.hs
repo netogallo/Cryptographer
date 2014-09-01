@@ -33,6 +33,7 @@ htmlBody RenderCTX{..} = H.body $ do
     H.input H.! As.type_ "text" H.! As.id keyInputName
     H.input H.! As.type_ "submit" H.! As.id decryptButtonName H.! As.value "Decrypt"
   H.div "" H.! As.id contentName
+  H.script "h$main(h$mainZCMainzimain);" H.! As.type_ "text/javacript"
 
 render c = H.html $ htmlBody c
 

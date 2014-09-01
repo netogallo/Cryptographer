@@ -18,9 +18,9 @@ import GHCJS.DOM.Types(
   castToHTMLElement,
   castToHTMLDivElement,
   castToHTMLInputElement)
-import Control.Monad.Trans (lift)
-import Cryptographer.Util
-import Cryptographer.Cmd.Encrypt (decryptCBC)
+import Control.Monad.Trans.Class (lift)
+import Cryptographer.BaseUtil
+import Cryptographer.Cmd.Decrypt (decryptCBC)
 import GHCJS.DOM.HTMLInputElement (htmlInputElementGetValue)
 import Data.ByteString.Char8 (pack, unpack)
 import GHCJS.DOM.Element (elementOnclick)
