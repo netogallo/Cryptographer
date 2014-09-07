@@ -15,8 +15,9 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Control.Monad.Trans.State.Strict as S
 import Pipes.Binary as Pb
 import Pipes.Lift as Pl
+import Pipes.ByteString as PS
 import Cryptographer.Cmd.Types
-
+import Debug.Trace
 
 cbcEnc :: (FiniteBits b, Monad m, Show b) => (b -> b) -> b -> S.StateT b m b
 cbcEnc enc b = do
@@ -28,19 +29,21 @@ cbcEnc enc b = do
 encryptCBCGen :: forall k w . (FiniteBits w, Num w, Binary w, Show w) =>
                  CryptographerCipher k w ->
                  ByteString ->
-                 P.Producer ByteString (S.StateT Int IO) () ->
-                 P.Producer ByteString IO ()
+                 Proxy X () () ByteString (S.StateT Int IO) () ->
+                 Proxy X () () ByteString IO ()
 encryptCBCGen CC{..} key' text' = do
   iv <- P.lift $ randIV
   (l,ct) <- P.lift $ crypt iv
   let
-    encoded = Pb.encode $ buildData CBC l iv (Prelude.reverse ct)
-  encoded P.>-> Pr.map (\s -> BE.encode $ BL.fromStrict s) P.>-> (P.await >>= P.each . BL.toChunks)
+    encoded = PS.toLazy $ Pb.encode $ buildData CBC (trace (show l) l) iv (ct)
+  PS.fromLazy $ BE.encode encoded
+--  encoded -- P.>-> Pr.map (\s -> BE.encode $ BL.fromStrict s) P.>-> mkChunks
   where
+ --   mkChunks = P.await >>= P.each . BL.toChunks >> mkChunks
     key = hash key'
     text :: Producer w (S.StateT Int IO) ()
     text = bits $ text' P.>-> bytes
     crypt :: w -> IO (Int,[w])
     crypt iv =
       let pr = Pl.execStateP 0 text P.>-> Pl.evalStateP iv (Pr.mapM (cbcEnc (enc key)))
-      in reducePipe (\s v -> (s ++ [v])) [] pr
+      in reducePipe (\s v -> ([v] ++ s)) [] pr

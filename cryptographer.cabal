@@ -37,8 +37,6 @@ executable cryptographer
                       ,crypto-cipher-types >= 0.0.9
                       ,cipher-blowfish >= 0.0.3
                       ,Twofish >= 0.3
-                      ,html-conduit >= 1.0
-                      ,xml-conduit >= 1.0
                       ,array >= 0.5
                       ,base64-bytestring >= 0.1
                       ,SHA >= 1.4
@@ -54,6 +52,7 @@ executable cryptographer
                       ,pipes-bytestring >= 2.1
                       ,pipes-parse >= 3.0
                       ,pipes-binary >= 0.4
+                      ,attoparsec >= 0.8
  hs-source-dirs:      src
  default-language:    Haskell2010
   

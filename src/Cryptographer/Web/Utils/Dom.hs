@@ -22,7 +22,8 @@ import Control.Monad.Trans.Class (lift)
 import Cryptographer.BaseUtil
 import Cryptographer.Cmd.Decrypt (decryptCBC)
 import GHCJS.DOM.HTMLInputElement (htmlInputElementGetValue)
-import Data.ByteString.Char8 (pack, unpack)
+import Data.ByteString.Char8 (pack)
+import Data.ByteString.Lazy.Char8 (unpack)
 import GHCJS.DOM.Element (elementOnclick)
 import Cryptographer.Common
 import Data.String

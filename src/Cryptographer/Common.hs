@@ -5,6 +5,7 @@ module Cryptographer.Common where
 import Paths_cryptographer
 import qualified Paths_cryptographer as P
 import Data.Version
+import Control.Monad.Error
 
 allJS = getDataFileName "all.js"
 
@@ -17,6 +18,18 @@ version :: [Int]
 version =  undefined
 
 #endif
+
+type CryptError m = ErrorT Errors m
+
+data Errors =
+  DecodeError String
+  | UnrecognizedCipher String
+  | XMLParsingError String
+  | OtherError String deriving Show
+
+instance Error Errors where
+  noMsg = OtherError ""
+  strMsg _ = OtherError ""
 
 encTextName = "encText"
 keyInputName = "keyInput"

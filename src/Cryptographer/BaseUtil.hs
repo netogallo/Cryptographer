@@ -10,6 +10,9 @@ import qualified Data.ByteString as B
 import Crypto.Random
 import Control.Applicative ((<$>))
 import Data.Binary (decodeOrFail)
+import Cryptographer.Common
+import Control.Monad.Error
+import Data.ByteString.Base64.Lazy as BE
 
 a >?> b = do
   a' <- a
@@ -42,23 +45,31 @@ randomW = toW . BL.fromStrict <$> randomBS len
 sha256 :: (FiniteBits w, Num w) => B.ByteString -> w
 sha256 = toW . S.bytestringDigest . S.sha256 . BL.fromStrict
 
-safeDecode d =
+decodeBase64 x =
+  case BE.decode x of
+    Left e -> throwError $ DecodeError e
+    Right v -> return v
+
+decodeBinary d =
   case decodeOrFail d of
-    Right (_,_,v) -> Right v
-    Left (_,_,e) -> Left e
+    Right (_,_,v) -> return v
+    Left (_,_,e) -> throwError $ DecodeError e
 
 mkBs :: forall w . (Integral w, FiniteBits w) => w -> B.ByteString -> B.ByteString
-mkBs wi = snd . B.mapAccumL cata wi -- (rotateR wi (wSize - bSize))
+mkBs wi = snd . B.mapAccumL cata (rotateL wi bSize)
   where
     chopper = fromIntegral $ complement (0 :: Word8)
     cata w b = (rotateL w (finiteBitSize b), fromIntegral (w .&. chopper))
     wSize = finiteBitSize (undefined :: w)
 
-fromBits :: forall w . (FiniteBits w, Integral w) => Int -> [w] -> B.ByteString
-fromBits _ [] = B.empty
-fromBits l (b:bs)
-  | l > r = B.append (mkBs b (B.replicate r 0)) $ fromBits (l-r) bs
-  | otherwise = mkBs b (B.replicate l 0)
+fromBits :: (FiniteBits w, Integral w) => Int -> [w] -> BL.ByteString
+fromBits l = BL.fromChunks . fromBits' l . reverse
+
+fromBits' :: forall w . (FiniteBits w, Integral w) => Int -> [w] -> [B.ByteString]
+fromBits' _ [] = [B.empty]
+fromBits' l (b:bs)
+  | l > r = (mkBs b (B.replicate r 0)) : fromBits' (l-r) bs
+  | otherwise = mkBs b (B.replicate l 0) : []
   where
     bl = finiteBitSize (undefined :: Word8)
     r = finiteBitSize b `div` bl

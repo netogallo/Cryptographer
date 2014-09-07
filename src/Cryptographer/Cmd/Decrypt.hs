@@ -2,12 +2,16 @@
 
 module Cryptographer.Cmd.Decrypt where
 
-import Data.ByteString.Base64.Lazy as BE
+import Cryptographer.Common
 import Cryptographer.Cmd.Types
 import Cryptographer.BaseUtil
 import Data.Bits
 import qualified Codec.Encryption.Twofish as TF
-import Data.ByteString.Lazy (fromStrict)
+import qualified Data.ByteString.Lazy as BL
+import Control.Monad.Trans.Class
+import qualified Data.ByteString as BS
+import Cryptographer.BaseUtil
+import Control.Monad.Error
 
 cbcDec vi dec = snd . Prelude.foldr cata (vi,[])
   where
@@ -23,7 +27,8 @@ decryptCBCGen CC{..} key' BlockEncrypted{..} =
     key = hash key'
 
 decryptCBC key ctx' = do
-  ctx <- BE.decode (fromStrict ctx') >>= safeDecode
+  ctx <-  decodeBase64 ctx' >>= decodeBinary
   case () of
     _ | valid twoFishCipher ctx ->
       return $ decryptCBCGen twoFishCipher key ctx
+    _ -> throwError $ OtherError "No suitable cipher found"

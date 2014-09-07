@@ -1,4 +1,4 @@
-{-# Language DeriveGeneric #-}
+{-# Language DeriveGeneric, RecordWildCards #-}
 module Cryptographer.Cmd (cmdMain) where
 
 import Cryptographer.Cmd.Encrypt (encryptCBCGen)
@@ -11,18 +11,43 @@ import Data.String
 import System.Console.CmdArgs.Generic (kwargs, getBuilders)
 import GHC.Generics (Generic(..))
 import qualified Pipes.ByteString as PB
+import qualified Pipes as P
+import System.IO (withFile, IOMode(..), Handle)
+import Data.Maybe (fromMaybe)
+import Cryptographer.Cmd.Processors (decryptFile)
+import Control.Monad.Error
+import Cryptographer.Format
+import Cryptographer.Util
+import Debug.Trace
 
 data Settings = S{
 
-  key :: String
---  extraKey :: Maybe String,
---  append :: Maybe String
+  key :: String,
+  docKey :: Maybe String,
+  append :: Maybe String
   } deriving (Generic)
+
+errorRunner p = do
+  p' <- runErrorT p
+  case p' of
+    Right p'' -> return p''
+    Left e -> fail $ show e
+
+performEncryption S{..} = do
+  runPipes [prevPipe, SPipe $ return PB.stdin] $ \ps -> do
+    bs <- readPipes ps >>= \x -> trace (show x) $ (return $  PB.fromLazy x)
+    renderIO stdout $ encryptCBCGen twoFishCipher k bs
+
+  where
+    k = fromString $ fromMaybe key docKey
+    prevPipe = 
+      case append of
+        Nothing -> SPipe $ return $ P.each []
+        Just f -> FPipe f ReadMode $ \h -> errorRunner $ decryptFile k h
 
 cmdMain :: IO ()
 cmdMain = do
   settings <- kwargs getBuilders <$> getArgs
   case settings of
-    Right s -> 
-      renderIO stdout $ encryptCBCGen twoFishCipher (fromString $ key s) PB.stdin
+    Right s -> performEncryption s
     Left e -> hPutStrLn stderr (concat e)
