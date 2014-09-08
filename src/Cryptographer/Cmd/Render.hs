@@ -13,7 +13,6 @@ import qualified Pipes as P
 import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Cryptographer.Util
 import Cryptographer.Format
-import Debug.Trace
 
 data RenderCTX = RenderCTX {
   alljs :: String,
@@ -28,10 +27,9 @@ decryptButtonName = fromString C.decryptButtonName
 
 renderEncObject EncInput{..} = do
   encText <- readPipes dataSources
-  trace (show encText) $ return ()
   return $ H.div $ do
     H.input H.! As.type_ "hidden" H.! As.value (unsafeLazyByteStringValue encText) H.! As.id encTextName
-    H.input H.! As.type_ "text" H.! As.id keyInputName
+    H.input H.! As.type_ "password" H.! As.id keyInputName
     H.input H.! As.type_ "submit" H.! As.id decryptButtonName H.! As.value "Decrypt"
     H.div "" H.! As.id contentName
 

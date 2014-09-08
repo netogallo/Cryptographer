@@ -1,11 +1,11 @@
 {-# Language CPP #-}
 module Cryptographer.Common where
 
+import Control.Monad.Error
 #ifdef CABAL
 import Paths_cryptographer
 import qualified Paths_cryptographer as P
 import Data.Version
-import Control.Monad.Error
 
 allJS = getDataFileName "all.js"
 

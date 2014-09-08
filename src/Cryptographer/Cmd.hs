@@ -18,7 +18,6 @@ import Cryptographer.Cmd.Processors (decryptFile)
 import Control.Monad.Error
 import Cryptographer.Format
 import Cryptographer.Util
-import Debug.Trace
 
 data Settings = S{
 
@@ -35,7 +34,7 @@ errorRunner p = do
 
 performEncryption S{..} = do
   runPipes [prevPipe, SPipe $ return PB.stdin] $ \ps -> do
-    bs <- readPipes ps >>= \x -> trace (show x) $ (return $  PB.fromLazy x)
+    bs <- PB.fromLazy <$> readPipes ps
     renderIO stdout $ encryptCBCGen twoFishCipher k bs
 
   where

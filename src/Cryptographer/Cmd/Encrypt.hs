@@ -17,7 +17,6 @@ import Pipes.Binary as Pb
 import Pipes.Lift as Pl
 import Pipes.ByteString as PS
 import Cryptographer.Cmd.Types
-import Debug.Trace
 
 cbcEnc :: (FiniteBits b, Monad m, Show b) => (b -> b) -> b -> S.StateT b m b
 cbcEnc enc b = do
@@ -35,7 +34,7 @@ encryptCBCGen CC{..} key' text' = do
   iv <- P.lift $ randIV
   (l,ct) <- P.lift $ crypt iv
   let
-    encoded = PS.toLazy $ Pb.encode $ buildData CBC (trace (show l) l) iv (ct)
+    encoded = PS.toLazy $ Pb.encode $ buildData CBC l iv (ct)
   PS.fromLazy $ BE.encode encoded
 --  encoded -- P.>-> Pr.map (\s -> BE.encode $ BL.fromStrict s) P.>-> mkChunks
   where

@@ -13,7 +13,6 @@ import Control.Monad
 import Control.Monad.Trans.State.Strict as Ms
 import Cryptographer.BaseUtil
 import qualified Pipes.ByteString as Pb
-import Debug.Trace
 import qualified Pipes.Prelude as Pre
 
 readPipes :: Monad m => [P.Producer Pb.ByteString m ()] -> m BL.ByteString
@@ -61,7 +60,7 @@ bits pr = do
     cata (_,s) x' =
       let (end,x) = case x' of
             Nothing -> (True,0)
-            Just a-> (False,trace (show a) a)
+            Just a-> (False,a)
       in (end, shiftL s bSize .|. fromIntegral x)
       
     wSize = finiteBitSize (undefined :: w)

@@ -27,6 +27,8 @@ import Data.ByteString.Lazy.Char8 (unpack)
 import GHCJS.DOM.Element (elementOnclick)
 import Cryptographer.Common
 import Data.String
+import Control.Monad.Error
+import Control.Monad.Identity
 
 pageElement name webUi = do
   c <- webViewGetDomDocument webUi
@@ -52,10 +54,10 @@ contentDecrypt webUi = do
   val <- fromString <$> (encText webUi >>= htmlInputElementGetValue)
   c <- contentDiv webUi
   let
-    dec' = decryptCBC key val
+    dec' = runIdentity . runErrorT $ decryptCBC key val
   case dec' of
     Right dec -> htmlElementSetInnerHTML c (unpack dec)
-    Left e -> error e
+    Left e -> error $ show e
 
 mainGui webUi = do
   c <- contentDiv webUi
