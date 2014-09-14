@@ -2,11 +2,11 @@
 module Cryptographer.Format where
 
 import System.IO (Handle, openFile, IOMode(..), hClose)
-import Control.Monad.State.Class as MS
 import Control.Monad.State.Strict
-import Control.Exception
 import System.Process (terminateProcess, createProcess)
 import Cryptographer.Common
+import qualified Pipes.Safe as PS
+import Control.Applicative ((<$>))
 
 data PipeData p =
   -- | Pipe from a file
@@ -22,49 +22,23 @@ data EncObject a =
 instance Functor EncObject where
   fmap f i@(EncInput{..}) = i{dataSources=f `fmap` dataSources}
 
-runPipes :: forall a a1 . [PipeData (IO a1)] -> ([a1] -> IO a) -> IO a
-runPipes ps' f = flip evalStateT ([]) $ do
-  ps'' <- foldM cata (Right []) ps'
-  res <- lift $ case ps'' of
-    Right ps -> (try $ f $ reverse ps :: IO (Either IOError a))
-    Left e -> throw e
-  closeHandles
---  return res
-  case res of
-     Right v -> return v
-     Left e -> throw e
+register (FPipe fp m p') = do
+  h <- lift $ openFile fp m
+  k <- PS.register $ hClose h
+  p <- lift $ p' h
+  return (Just k,p)
+register (UrlPipe url p')  = do
+  hs@(pIn,pOut',pErr,pHandle) <- lift $ createProcess $ wget [url]
+  k <- PS.register $ terminateProcess pHandle
+  p <- case pOut' of
+    Just pOut -> lift $ p' pOut
+    Nothing -> fail "Unable to read web resource"
+  return (Just k,p)
+register (SPipe p') = do
+  p <- lift p'
+  return (Nothing,p)
 
-  where
-    closeHandle h = do
-      _ <- lift $ ((try $ h) :: IO (Either IOError ()))
-      return ()
-    closeHandles = get >>= mapM_ (closeHandle)
-    cata (Left e) _ = return $ Left e
-    cata (Right s) v =
-      case v of
-        FPipe fi m p -> do
-          h' <- lift $ (try $ openFile fi m :: IO (Either IOError Handle))
-          case h' of
-            Right h -> do
-              modify ((hClose h):)
-              p' <- lift $ p h
-              return $ Right $ p' : s
-            Left e ->
-              return $ Left e
-        SPipe p -> do
-          p' <- lift p
-          return $ Right $ p' : s
-        UrlPipe url p -> do
-          mFile <- lift $ try (createProcess $ wget [url])
-          case mFile of
-            Left (_ :: IOError) ->
-              return $ Left $ error "The program 'wget' is needed to fetch urls"
-            Right (_,Nothing,_,pHandle) -> do
-              modify ((terminateProcess pHandle):)
-              return $ Left $ error "Unable to open the downloaded resoruce"
-            Right (_,Just pOut,_,pHandle) -> do
-              modify ((terminateProcess pHandle):)
-              p' <- lift $ p pOut
-              return $ Right $ p' : s
-      
+runPipes ps' f = PS.runSafeT $ do
+  ps'' <- foldM (\s p -> (:s) . snd <$> register p) [] ps'
+  lift $ f $ reverse ps''      
 
