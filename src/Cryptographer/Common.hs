@@ -6,11 +6,14 @@ import Control.Monad.Error
 import Paths_cryptographer
 import qualified Paths_cryptographer as P
 import Data.Version
+import System.Process
 
 allJS = getDataFileName "all.js"
 
 version :: [Int]
 version =  versionBranch P.version
+
+wget fs = (proc "wget" $ ["-qO-"] ++ fs){std_out = CreatePipe}
 #else
 allJS = undefined
 

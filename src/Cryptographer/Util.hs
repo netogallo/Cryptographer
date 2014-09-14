@@ -1,4 +1,4 @@
-{-# Language ScopedTypeVariables, TypeSynonymInstances, FlexibleInstances, FlexibleContexts #-}
+{-# Language ScopedTypeVariables, TypeSynonymInstances, FlexibleInstances, FlexibleContexts, OverloadedStrings #-}
 module Cryptographer.Util where
 
 import Data.ByteString as BS
@@ -14,6 +14,17 @@ import Control.Monad.Trans.State.Strict as Ms
 import Cryptographer.BaseUtil
 import qualified Pipes.ByteString as Pb
 import qualified Pipes.Prelude as Pre
+import Data.Attoparsec.Combinator
+import Data.Attoparsec.ByteString.Char8
+import Control.Applicative ((<$>), (<|>), (<*>), pure, (<*))
+
+isUrl u =
+  case parse isUrlParser u of
+    Done _ _ -> True
+    Fail _ _ _ -> False
+
+  where
+    isUrlParser = try $ (string "http://" <|> string "https://")
 
 readPipes :: Monad m => [P.Producer Pb.ByteString m ()] -> m BL.ByteString
 readPipes = foldM cata BL.empty
