@@ -1,5 +1,5 @@
 {-# Language DeriveGeneric, RecordWildCards, ScopedTypeVariables #-}
-module Cryptographer.Cmd (cmdMain) where
+module Cryptographer.Cmd where
 
 import Cryptographer.Cmd.Encrypt (encryptCBCGen)
 import Cryptographer.Cmd.Types (twoFishCipher)
@@ -8,23 +8,30 @@ import System.Environment (getArgs)
 import Control.Applicative ((<$>))
 import System.IO (stdout, hPutStrLn, stderr)
 import Data.String
+import Data.Maybe (fromMaybe)
 import System.Console.CmdArgs.Generic (kwargs, getBuilders)
 import GHC.Generics (Generic(..))
 import qualified Pipes.ByteString as PB
 import qualified Pipes as P
 import System.IO (IOMode(..))
-import Data.Maybe (fromMaybe)
 import Cryptographer.Cmd.Processors (decryptFile)
+import Control.Monad (liftM)
 import Control.Monad.Error
 import Cryptographer.Format
 import Cryptographer.Util
+import qualified System.Console.Haskeline as HL
 
-data Settings = S{
+data Settings a = S{
 
-  key :: String,
+  key :: a,
   docKey :: Maybe String,
   append :: Maybe String
   } deriving (Generic)
+
+fromMaybeM a m =
+  case m of
+    Just x -> return x
+    Nothing -> a
 
 errorRunner p = do
   p' <- runErrorT p
@@ -48,9 +55,17 @@ performEncryption S{..} = do
     k = fromString $ fromMaybe key docKey
     prevPipe = processAppend k append
 
+getPassword :: IO String
+getPassword = do
+  p <- HL.runInputT HL.defaultSettings $ HL.getPassword (Just '*') "Encryption key:"
+  case p of
+    Nothing -> getPassword
+    Just p' -> return p'
+
 cmdMain :: IO ()
 cmdMain = do
   settings <- kwargs getBuilders <$> getArgs
   case settings of
-    Right s -> performEncryption s
+    Right s -> do
+      performEncryption s
     Left e -> hPutStrLn stderr (concat e)
