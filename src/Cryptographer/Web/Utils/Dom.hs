@@ -63,7 +63,7 @@ mainGui webUi = do
   c <- contentDiv webUi
   b <- decryptButton webUi
   elementOnclick b (lift $ contentDecrypt webUi)
-  htmlElementSetInnerHTML c "<p>GHCJS</p>"
+  htmlElementSetInnerHTML c ""
   return ()
 
 webMain = runWebGUI mainGui

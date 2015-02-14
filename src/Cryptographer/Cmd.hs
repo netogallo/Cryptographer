@@ -1,4 +1,4 @@
-{-# Language DeriveGeneric, RecordWildCards, ScopedTypeVariables #-}
+{-# Language DeriveGeneric, RecordWildCards, ScopedTypeVariables, DeriveDataTypeable #-}
 module Cryptographer.Cmd where
 
 import Cryptographer.Cmd.Encrypt (encryptCBCGen)
@@ -20,13 +20,27 @@ import Control.Monad.Error
 import Cryptographer.Format
 import Cryptographer.Util
 import qualified System.Console.Haskeline as HL
+import qualified Data.ByteString as BS
+import System.Console.CmdArgs
+import Cryptographer.BaseUtil (sha256',fromBits)
+import Data.LargeWord (Word256)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
+import Debug.Trace (trace)
 
-data Settings a = S{
-
+data Settings a  = S{
   key :: a,
   docKey :: Maybe String,
-  append :: Maybe String
-  } deriving (Generic)
+  append :: Maybe String,
+  file :: Maybe String
+  } deriving (Generic, Data, Typeable)
+
+config = S{
+  key = def,
+  docKey = def,
+  append = def,
+  file = def
+  } :: Settings (Maybe String)
 
 fromMaybeM a m =
   case m of
@@ -48,24 +62,35 @@ processAppend k append =
 
 performEncryption S{..} = do
   runPipes [prevPipe, SPipe $ return PB.stdin] $ \ps -> do
-    bs <- PB.fromLazy <$> readPipes ps
-    renderIO stdout $ encryptCBCGen twoFishCipher k bs
+    bs <- readPipes ps
+    renderIO stdout (encryptCBCGen twoFishCipher k (PB.fromLazy bs)) (fromBits 32 $ [sha256' bs :: Word256])
 
   where
     k = fromString $ fromMaybe key docKey
     prevPipe = processAppend k append
 
-getPassword :: IO String
-getPassword = do
+getPassword :: Bool -> IO String
+getPassword False = do
   p <- HL.runInputT HL.defaultSettings $ HL.getPassword (Just '*') "Encryption key:"
+  return (Nothing, p)
   case p of
-    Nothing -> getPassword
+    Nothing -> fail "Unable to read the password" -- getPassword
     Just p' -> return p'
+
+processSettings s = do
+  k <- fromMaybeM (getPassword False) $ key s
+  let o = case file s of
+        Nothing -> SPipe $ (return PB.stdout :: IO (P.Proxy () BS.ByteString () BS.ByteString IO ()))
+        Just f -> FPipe (fromString f) WriteMode $ return . PB.fromHandle
+  return s{key=k}
 
 cmdMain :: IO ()
 cmdMain = do
-  settings <- kwargs getBuilders <$> getArgs
-  case settings of
-    Right s -> do
-      performEncryption s
-    Left e -> hPutStrLn stderr (concat e)
+  settings <- cmdArgs config --kwargs getBuilders <$> getArgs
+  return $ trace ("Append:" ++ (show $ append settings)) ()
+  putStrLn ("Append:" ++ (show $ append settings))
+  processSettings settings >>= performEncryption
+  -- case settings of
+  --   Right s -> do
+  --     processSettings s >>= performEncryption
+  --   Left e -> hPutStrLn stderr (concat e)

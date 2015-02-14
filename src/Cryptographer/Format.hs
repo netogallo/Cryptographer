@@ -7,6 +7,7 @@ import System.Process (terminateProcess, createProcess)
 import Cryptographer.Common
 import qualified Pipes.Safe as PS
 import Control.Applicative ((<$>))
+import Data.ByteString.Lazy (ByteString)
 
 data PipeData p =
   -- | Pipe from a file
@@ -17,7 +18,10 @@ data PipeData p =
   | UrlPipe String (Handle -> p)
 
 data EncObject a =
-  EncInput {dataSources :: [a]}
+  EncInput {
+    dataSources :: [a],
+    checksum :: ByteString
+    }
 
 instance Functor EncObject where
   fmap f i@(EncInput{..}) = i{dataSources=f `fmap` dataSources}

@@ -45,6 +45,9 @@ randomW = toW . BL.fromStrict <$> randomBS len
 sha256 :: (FiniteBits w, Num w) => B.ByteString -> w
 sha256 = toW . S.bytestringDigest . S.sha256 . BL.fromStrict
 
+sha256' :: (FiniteBits w, Num w) => BL.ByteString -> w
+sha256' = toW . S.bytestringDigest . S.sha256
+
 decodeBase64 x =
   case BE.decode x of
     Left e -> throwError $ DecodeError e
