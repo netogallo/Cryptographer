@@ -5,7 +5,6 @@ import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as As
 import qualified Cryptographer.Common as C
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
 import Data.String
 import System.IO
 import qualified Pipes.ByteString as Pb
@@ -14,6 +13,7 @@ import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Cryptographer.Util
 import Cryptographer.Format
 import Data.ByteString.Base64.Lazy as BE
+import Control.Exception (evaluate)
 
 data RenderCTX = RenderCTX {
   alljs :: String,

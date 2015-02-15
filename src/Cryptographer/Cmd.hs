@@ -13,20 +13,16 @@ import System.Console.CmdArgs.Generic (kwargs, getBuilders)
 import GHC.Generics (Generic(..))
 import qualified Pipes.ByteString as PB
 import qualified Pipes as P
-import System.IO (IOMode(..))
+import System.IO (IOMode(..), openFile, hClose)
 import Cryptographer.Cmd.Processors (decryptFile)
-import Control.Monad (liftM)
 import Control.Monad.Error
 import Cryptographer.Format
 import Cryptographer.Util
 import qualified System.Console.Haskeline as HL
-import qualified Data.ByteString as BS
 import System.Console.CmdArgs
 import Cryptographer.BaseUtil (sha256',fromBits)
 import Data.LargeWord (Word256)
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BL
-import Debug.Trace (trace)
+import Control.Exception (bracket,evaluate)
 
 data Settings a  = S{
   key :: a,
@@ -63,8 +59,13 @@ processAppend k append =
 performEncryption S{..} = do
   runPipes [prevPipe, SPipe $ return PB.stdin] $ \ps -> do
     bs <- readPipes ps
-    renderIO stdout (encryptCBCGen twoFishCipher k (PB.fromLazy bs)) (fromBits 32 $ [sha256' bs :: Word256])
-
+    let writeFile o = renderIO o (encryptCBCGen twoFishCipher k (PB.fromLazy bs)) (fromBits 32 $ [sha256' bs :: Word256])
+    case file of
+      Nothing -> writeFile stdout
+      Just f -> bracket
+                (openFile f WriteMode)
+                hClose
+                writeFile
   where
     k = fromString $ fromMaybe key docKey
     prevPipe = processAppend k append
@@ -79,16 +80,9 @@ getPassword False = do
 
 processSettings s = do
   k <- fromMaybeM (getPassword False) $ key s
-  let o = case file s of
-        Nothing -> SPipe $ (return PB.stdout :: IO (P.Proxy () BS.ByteString () BS.ByteString IO ()))
-        Just f -> FPipe (fromString f) WriteMode $ return . PB.fromHandle
   return s{key=k}
 
 cmdMain :: IO ()
 cmdMain = do
-  settings <- cmdArgs config --kwargs getBuilders <$> getArgs
+  settings <- cmdArgs config
   processSettings settings >>= performEncryption
-  -- case settings of
-  --   Right s -> do
-  --     processSettings s >>= performEncryption
-  --   Left e -> hPutStrLn stderr (concat e)
