@@ -87,8 +87,6 @@ processSettings s = do
 cmdMain :: IO ()
 cmdMain = do
   settings <- cmdArgs config --kwargs getBuilders <$> getArgs
-  return $ trace ("Append:" ++ (show $ append settings)) ()
-  putStrLn ("Append:" ++ (show $ append settings))
   processSettings settings >>= performEncryption
   -- case settings of
   --   Right s -> do
