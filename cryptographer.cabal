@@ -32,7 +32,6 @@ executable cryptographer
                        ,Paths_cryptographer
  other-extensions:    
  build-depends:       base >=4.7 && <4.8
-                      ,kwargs >= 0.1
                       ,crypto-api
                       ,crypto-cipher-types >= 0.0.9
                       ,cipher-blowfish >= 0.0.3

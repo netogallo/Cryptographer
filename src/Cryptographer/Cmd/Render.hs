@@ -13,7 +13,6 @@ import Text.Blaze.Html.Renderer.Utf8 (renderHtml)
 import Cryptographer.Util
 import Cryptographer.Format
 import Data.ByteString.Base64.Lazy as BE
-import Control.Exception (evaluate)
 
 data RenderCTX = RenderCTX {
   alljs :: String,

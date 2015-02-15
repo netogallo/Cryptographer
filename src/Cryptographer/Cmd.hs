@@ -4,12 +4,9 @@ module Cryptographer.Cmd where
 import Cryptographer.Cmd.Encrypt (encryptCBCGen)
 import Cryptographer.Cmd.Types (twoFishCipher)
 import Cryptographer.Cmd.Render (renderIO)
-import System.Environment (getArgs)
-import Control.Applicative ((<$>))
-import System.IO (stdout, hPutStrLn, stderr)
+import System.IO (stdout)
 import Data.String
 import Data.Maybe (fromMaybe)
-import System.Console.CmdArgs.Generic (kwargs, getBuilders)
 import GHC.Generics (Generic(..))
 import qualified Pipes.ByteString as PB
 import qualified Pipes as P
@@ -22,7 +19,7 @@ import qualified System.Console.Haskeline as HL
 import System.Console.CmdArgs
 import Cryptographer.BaseUtil (sha256',fromBits)
 import Data.LargeWord (Word256)
-import Control.Exception (bracket,evaluate)
+import Control.Exception (bracket)
 
 data Settings a  = S{
   key :: a,
